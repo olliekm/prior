@@ -1,0 +1,11 @@
+# Core dependencies
+langgraph>=0.2.0
+openai>=1.0.0
+psycopg2-binary>=2.9.0
+python-dotenv>=1.0.0
+arxiv>=2.0.0
+
+# API server
+fastapi>=0.110.0
+uvicorn[standard]>=0.27.0
+pydantic>=2.0.0
