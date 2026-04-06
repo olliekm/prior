@@ -16,7 +16,10 @@ def _get_pool() -> SimpleConnectionPool:
     """Lazy-initialize connection pool."""
     global _pool
     if _pool is None:
-        _pool = SimpleConnectionPool(1, 10, os.environ['DATABASE_URL'])
+        db_url = os.environ.get('DATABASE_URL')
+        if not db_url:
+            raise RuntimeError("DATABASE_URL environment variable not set")
+        _pool = SimpleConnectionPool(1, 10, db_url, connect_timeout=5)
     return _pool
 
 

@@ -5,10 +5,12 @@ from core.state import AgentState
 from core.events import emit, EventType
 
 SIMILARITY_THRESHOLD = 0.35
-ARXIV_DELAY = 3  # seconds between requests
+ARXIV_DELAY = 1  # reduced from 3 seconds
+ARXIV_TIMEOUT = 15  # max seconds per query
 
 def fetch_arxiv(query: str, max_results: int = 10) -> list[dict]:
-    client = arxiv.Client(delay_seconds=ARXIV_DELAY)
+    print(f"[arxiv] fetching: {query[:50]}...")
+    client = arxiv.Client(delay_seconds=ARXIV_DELAY, num_retries=2)
     search = arxiv.Search(
         query=query,
         max_results=max_results,
@@ -16,16 +18,20 @@ def fetch_arxiv(query: str, max_results: int = 10) -> list[dict]:
     )
 
     papers = []
-    for r in client.results(search):
-        papers.append({
-            "id":         r.entry_id.split("/")[-1],
-            "title":      r.title,
-            "abstract":   r.summary,
-            "authors":    [a.name for a in r.authors],
-            "published":  r.published.date(),
-            "categories": r.categories,
-        })
+    try:
+        for r in client.results(search):
+            papers.append({
+                "id":         r.entry_id.split("/")[-1],
+                "title":      r.title,
+                "abstract":   r.summary,
+                "authors":    [a.name for a in r.authors],
+                "published":  r.published.date(),
+                "categories": r.categories,
+            })
+    except Exception as e:
+        print(f"[arxiv] error fetching '{query[:30]}': {e}")
 
+    print(f"[arxiv] found {len(papers)} papers for: {query[:50]}")
     return papers
 
 # ── dedup ─────────────────────────────────────────────────────────────────────
@@ -60,25 +66,27 @@ def filter_by_relevance(papers: list[dict], top_n: int = 30) -> list[dict]:
 def process_query(query: str) -> list[dict]:
     """Process a single sub-query: vector search + arXiv fetch in parallel."""
     papers = []
+    print(f"[retrieval] starting query: {query[:50]}...")
 
     # Run vector search and arXiv fetch concurrently for same query
     with ThreadPoolExecutor(max_workers=2) as executor:
         local_future = executor.submit(vector_search, query, 10)
         arxiv_future = executor.submit(fetch_arxiv, query, 10)
 
-        # Collect local results
+        # Collect local results (with timeout)
         try:
-            local = local_future.result()
+            local = local_future.result(timeout=10)
             papers.extend(local)
+            print(f"[retrieval] vector search: {len(local)} papers for '{query[:30]}'")
         except Exception as e:
-            print(f"[retrieval] vector search failed for '{query}': {e}")
+            print(f"[retrieval] vector search failed for '{query[:30]}': {e}")
 
-        # Collect arXiv results
+        # Collect arXiv results (with timeout)
         try:
-            live = arxiv_future.result()
+            live = arxiv_future.result(timeout=30)
             papers.extend(live)
         except Exception as e:
-            print(f"[retrieval] arXiv failed for '{query}': {e}, using local only")
+            print(f"[retrieval] arXiv timeout/failed for '{query[:30]}': {e}")
 
     return papers
 
