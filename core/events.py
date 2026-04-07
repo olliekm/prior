@@ -27,6 +27,11 @@ class EventType(str, Enum):
     PAPER_COMPLETE = "paper_complete"
     PAPER_FAILED = "paper_failed"
 
+    # Reflector events
+    REFLECTING = "reflecting"
+    NEEDS_MORE_INFO = "needs_more_info"
+    CONTEXT_SUMMARY = "context_summary"
+
     # Synthesis events
     SYNTHESIZING = "synthesizing"
 

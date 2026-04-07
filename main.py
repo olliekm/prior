@@ -15,15 +15,22 @@ from db.vector import init_db
 from core.graph import build_graph
 
 
-def run_analysis(question: str, verbose: bool = True) -> dict:
+def run_analysis(
+    question: str,
+    verbose: bool = True,
+    adaptive: bool = True,
+    use_memory: bool = True,
+    max_iterations: int = 3,
+) -> dict:
     """Run the full analysis pipeline on a research question."""
     if verbose:
         print(f"\n{'='*60}")
         print(f"Research Question: {question}")
+        print(f"Mode: {'adaptive' if adaptive else 'linear'}, Memory: {'on' if use_memory else 'off'}")
         print(f"{'='*60}\n")
 
     start = time.time()
-    graph = build_graph()
+    graph = build_graph(adaptive=adaptive, use_memory=use_memory)
 
     initial_state = {
         "question": question,
@@ -31,14 +38,24 @@ def run_analysis(question: str, verbose: bool = True) -> dict:
         "papers": [],
         "claims": [],
         "report": None,
+        # Adaptive loop state
+        "iteration": 1,
+        "max_iterations": max_iterations,
+        "context_summary": None,
+        "needs_more_info": False,
+        "searched_queries": [],
+        # Memory state
+        "memory_context": [],
+        "compressed_summary": None,
     }
 
     result = graph.invoke(initial_state)
     elapsed = time.time() - start
 
     if verbose:
+        iterations = result.get("iteration", 1) - 1
         print(f"\n{'='*60}")
-        print(f"Analysis completed in {elapsed:.1f}s")
+        print(f"Analysis completed in {elapsed:.1f}s ({iterations} iteration{'s' if iterations != 1 else ''})")
         print(f"{'='*60}\n")
 
     return result
@@ -116,6 +133,27 @@ Examples:
         action="store_true",
         help="Suppress progress output",
     )
+    parser.add_argument(
+        "--no-adaptive",
+        action="store_true",
+        help="Disable adaptive loops (linear pipeline only)",
+    )
+    parser.add_argument(
+        "--max-iterations",
+        type=int,
+        default=3,
+        help="Max iterations for adaptive mode (default: 3)",
+    )
+    parser.add_argument(
+        "--no-memory",
+        action="store_true",
+        help="Disable long-term memory",
+    )
+    parser.add_argument(
+        "--memory-stats",
+        action="store_true",
+        help="Show memory statistics and exit",
+    )
 
     args = parser.parse_args()
 
@@ -123,6 +161,18 @@ Examples:
         print("Initializing database...")
         init_db()
         print("Database initialized.")
+        return
+
+    if args.memory_stats:
+        from core.memory import get_memory
+        stats = get_memory().get_stats()
+        print("Memory Statistics:")
+        print(f"  Working memory: {stats['working_memory_count']} entries")
+        print(f"  Archival memory: {stats['archival_memory_count']} entries")
+        if stats.get("archival_by_type"):
+            print("  By type:")
+            for t, count in stats["archival_by_type"].items():
+                print(f"    {t}: {count}")
         return
 
     if args.interactive:
@@ -133,7 +183,13 @@ Examples:
         parser.print_help()
         sys.exit(1)
 
-    result = run_analysis(args.question, verbose=not args.quiet)
+    result = run_analysis(
+        args.question,
+        verbose=not args.quiet,
+        adaptive=not args.no_adaptive,
+        use_memory=not args.no_memory,
+        max_iterations=args.max_iterations,
+    )
 
     if args.output:
         with open(args.output, "w") as f:
