@@ -64,13 +64,22 @@ def run_analysis_with_events(question: str, emitter: EventEmitter):
         # Set the emitter for this thread so agents can emit events
         EventEmitter.set_current(emitter)
 
-        graph = build_graph()
+        graph = build_graph(adaptive=True, use_memory=True)
         initial_state = {
             "question": question,
             "sub_queries": [],
             "papers": [],
             "claims": [],
             "report": None,
+            # Adaptive loop state
+            "iteration": 1,
+            "max_iterations": 3,
+            "context_summary": None,
+            "needs_more_info": False,
+            "searched_queries": [],
+            # Memory state
+            "memory_context": [],
+            "compressed_summary": None,
         }
 
         result = graph.invoke(initial_state)
@@ -142,13 +151,22 @@ async def analyze_sync(request: AnalysisRequest) -> AnalysisResponse:
     if not request.question.strip():
         raise HTTPException(status_code=400, detail="Question cannot be empty")
 
-    graph = build_graph()
+    graph = build_graph(adaptive=True, use_memory=True)
     initial_state = {
         "question": request.question,
         "sub_queries": [],
         "papers": [],
         "claims": [],
         "report": None,
+        # Adaptive loop state
+        "iteration": 1,
+        "max_iterations": 3,
+        "context_summary": None,
+        "needs_more_info": False,
+        "searched_queries": [],
+        # Memory state
+        "memory_context": [],
+        "compressed_summary": None,
     }
 
     result = graph.invoke(initial_state)

@@ -2,6 +2,8 @@
 
 A research assistant that searches arXiv, analyzes papers, and synthesizes literature reviews.
 
+![Searching papers](imgs/searchingpapers.png)
+
 ## What it does
 
 Give it a research question, and it will:
@@ -134,9 +136,22 @@ The final report includes:
 - **Open problems** - Gaps in the literature
 - **Suggested queries** - What to search next
 
+![Example result](imgs/result1.png)
+
+![Example result continued](imgs/result2.png)
+
 ## API docs
 
 See [API.md](API.md) for the full API documentation including SSE event types and frontend integration examples.
+
+## Memory System
+
+Prior includes a MemGPT-style memory system that learns across sessions:
+
+- **Working memory** - Recent context within a session
+- **Archival memory** - Persisted findings, methods, and open problems
+
+![Memory compression](imgs/memorycompression.png)
 
 ## Notes
 
